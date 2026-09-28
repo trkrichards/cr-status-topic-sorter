@@ -32,6 +32,13 @@ button {
 .btn-secondary:hover { background: #dcdfe4; }
 .btn-small { padding: 5px 10px; font-size: 12px; font-weight: 500; background: #eef1f6; color: #1a1a1a; }
 .btn-small:hover { background: #e0e4ec; }
+.star-btn.active { background: #fff4cc; color: #8a6d00; }
+.report-panel label { font-size: 12px; font-weight: 600; display: block; margin-bottom: 4px; }
+.report-panel input[type="text"] {
+  width: 100%; padding: 8px; border: 1px solid #d0d3d9; border-radius: 6px; font-size: 13px; background: #fff;
+}
+.report-grid { display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap; }
+.report-grid > div { flex: 1; min-width: 220px; }
 .checkbox-row { font-size: 12px; color: #555; display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .status-msg { font-size: 12px; color: #0a8a3d; margin-left: 4px; visibility: hidden; }
 .status-msg.show { visibility: visible; }
@@ -89,6 +96,31 @@ ClinicalKey for Nursing Unified Vision (CKN+?)
     </div>
   </div>
   <div id="results"></div>
+
+  <div class="panel report-panel" style="margin-top:20px;">
+    <h2 style="font-size:15px;margin:0 0 6px;">Final Report — Word Export</h2>
+    <div class="hint" style="margin-bottom:10px;">
+      Star up to 3 topics above (a "☆ Top 3" button appears on any card with content) to feature them in the
+      Top 3 section, fill in Time Off and Sign-off below, then generate the report.
+    </div>
+    <label for="timeOffBox">Time Off (dates from the SharePoint list)</label>
+    <textarea id="timeOffBox" style="min-height:80px;" placeholder="e.g. John Grooms — out of office, Sept 21 (all day)
+Jan Niehoff — absence alert: Oct 12 &amp; 30"></textarea>
+    <div class="report-grid">
+      <div>
+        <label for="signName">Sign-off name &amp; credentials</label>
+        <input id="signName" type="text" value="Tessa Richards, MSMOB, PMP, LSSGB, Prosci">
+      </div>
+      <div>
+        <label for="signTitle">Title / team</label>
+        <input id="signTitle" type="text" value="Customer Readiness Manager, Customer Training &amp; Development, ELSEVIER | Clinical Solutions">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="downloadWordReport()">Download Word Report (.doc)</button>
+      <span id="top3Hint" class="hint" style="margin-top:0;"></span>
+    </div>
+  </div>
 
   <footer>CR Weekly Status Report — Topic Sorter. All parsing happens locally in your browser; nothing is sent anywhere.</footer>
 </div>
@@ -161,6 +193,21 @@ function matchTopic(line) {
 }
 
 let sorted = {};
+let top3Set = new Set();
+
+function toggleTop3(topic) {
+  if (top3Set.has(topic)) {
+    top3Set.delete(topic);
+  } else {
+    if (top3Set.size >= 3) {
+      document.getElementById("top3Hint").textContent = "Only 3 topics can be featured — unstar one first.";
+      setTimeout(() => { document.getElementById("top3Hint").textContent = ""; }, 2500);
+      return;
+    }
+    top3Set.add(topic);
+  }
+  render();
+}
 
 function parseInput() {
   const raw = document.getElementById("pasteBox").value;
@@ -186,6 +233,8 @@ function parseInput() {
   TOPICS.forEach(t => {
     sorted[t] = result[t].join("\n").trim();
   });
+  // Drop any starred topic that no longer has content after re-parsing.
+  top3Set.forEach(t => { if (!sorted[t]) top3Set.delete(t); });
   render();
 }
 
@@ -210,13 +259,27 @@ function render() {
     title.className = "card-title";
     title.textContent = topic;
 
+    const btnGroup = document.createElement("div");
+    btnGroup.style.display = "flex";
+    btnGroup.style.gap = "6px";
+
+    if (content) {
+      const starBtn = document.createElement("button");
+      const isTop3 = top3Set.has(topic);
+      starBtn.className = "btn-small star-btn" + (isTop3 ? " active" : "");
+      starBtn.textContent = (isTop3 ? "★" : "☆") + " Top 3";
+      starBtn.onclick = () => toggleTop3(topic);
+      btnGroup.appendChild(starBtn);
+    }
+
     const copyBtn = document.createElement("button");
     copyBtn.className = "btn-small";
     copyBtn.textContent = "Copy";
     copyBtn.onclick = () => copyText(content || "", copyBtn);
+    btnGroup.appendChild(copyBtn);
 
     top.appendChild(title);
-    top.appendChild(copyBtn);
+    top.appendChild(btnGroup);
 
     const body = document.createElement("div");
     body.className = "card-body" + (content ? "" : " empty");
@@ -274,7 +337,70 @@ function clearAll() {
   document.getElementById("pasteBox").value = "";
   try { localStorage.removeItem("cr-sorter-draft"); } catch (e) {}
   sorted = {};
+  top3Set = new Set();
   render();
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+function downloadWordReport() {
+  const timeOff = document.getElementById("timeOffBox").value.trim();
+  const signName = document.getElementById("signName").value.trim() || "Tessa Richards";
+  const signTitle = document.getElementById("signTitle").value.trim() || "";
+  const today = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
+  let body = "";
+  body += "<h1>CR Weekly Status Report</h1>";
+  body += "<p>Week ending " + escapeHtml(today) + "</p>";
+
+  body += "<h2>Top 3 Updates</h2>";
+  const top3 = TOPICS.filter(t => top3Set.has(t));
+  if (top3.length === 0) {
+    body += "<p><i>No topics starred yet — star up to 3 above before generating this report.</i></p>";
+  } else {
+    top3.forEach(t => {
+      body += "<p><b>" + escapeHtml(t) + "</b></p>";
+      body += "<p>" + escapeHtml(sorted[t] || "") + "</p>";
+    });
+  }
+
+  body += "<h2>Updates by Topic</h2>";
+  TOPICS.forEach(t => {
+    body += "<p><b>" + escapeHtml(t) + "</b></p>";
+    const c = sorted[t] || "";
+    body += c ? "<p>" + escapeHtml(c) + "</p>" : "<p><i>No update this week</i></p>";
+  });
+
+  body += "<h2>Time Off</h2>";
+  if (timeOff) {
+    body += timeOff.split("\n").filter(l => l.trim()).map(l => "<p>" + escapeHtml(l.trim()) + "</p>").join("");
+  } else {
+    body += "<p><i>No time off entries provided.</i></p>";
+  }
+
+  body += "<h2>Sign-off</h2>";
+  body += "<p><b>" + escapeHtml(signName) + "</b></p>";
+  if (signTitle) body += "<p>" + escapeHtml(signTitle) + "</p>";
+
+  const html = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>" +
+    "<head><meta charset='utf-8'><title>CR Weekly Status Report</title>" +
+    "<style>body{font-family:Calibri,Arial,sans-serif;font-size:11pt;} h1{font-size:20pt;} h2{font-size:14pt;color:#1F4E79;margin-top:18pt;}</style>" +
+    "</head><body>" + body + "</body></html>";
+
+  const blob = new Blob(["﻿", html], { type: "application/msword" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "CR_Weekly_Status_Report.doc";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
 // Restore any saved draft on load.

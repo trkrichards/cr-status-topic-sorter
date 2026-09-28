@@ -16,6 +16,12 @@ Everything runs client-side in the browser — no backend, no data leaves your m
 - "Copy all as Markdown" for a full sorted digest.
 - "Copy as table" — produces tab-separated Topic/Update rows you can paste directly
   into the SharePoint list's grid (quick edit) view.
+- Star up to 3 topics ("☆ Top 3" button on any card with content) to feature them in a
+  Top 3 Updates section.
+- Time Off and Sign-off fields feed into the final report.
+- **Download Word Report (.doc)** — generates a real Word-openable document with Top 3
+  Updates, Updates by Topic (all 17, including blanks marked "No update this week"),
+  Time Off, and Sign-off sections. No server, no library — built client-side in the browser.
 - Draft auto-saved to browser `localStorage` so a reload doesn't lose your paste.
 
 ## Hosting on GitHub Pages
