@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CR Weekly Status Report — Topic Sorter</title>
+<style>
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+body { margin: 0; background: #ffffff; font-family: -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: #1a1a1a; }
+.app { max-width: 980px; margin: 0 auto; padding: 32px 16px 60px; }
+h1 { font-size: 20px; margin: 0 0 4px; }
+.subtitle { font-size: 13px; color: #555; margin: 0 0 16px; line-height: 1.5; }
+.subtitle a { color: #0b5fff; }
+.list-link {
+  display: inline-block; margin-top: 8px; padding: 8px 14px; background: #0b5fff; color: #fff;
+  text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 600;
+}
+.list-link:hover { background: #0947c9; }
+.panel { background: #f7f8fa; border: 1px solid #e2e4e8; border-radius: 10px; padding: 16px; margin-bottom: 20px; }
+textarea {
+  width: 100%; min-height: 220px; font-family: ui-monospace, Consolas, monospace; font-size: 13px;
+  padding: 12px; border: 1px solid #d0d3d9; border-radius: 8px; resize: vertical; background: #fff;
+}
+.btn-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+button {
+  cursor: pointer; border: none; border-radius: 6px; padding: 9px 16px; font-size: 13px; font-weight: 600;
+}
+.btn-primary { background: #0b5fff; color: #fff; }
+.btn-primary:hover { background: #0947c9; }
+.btn-secondary { background: #e9ebef; color: #1a1a1a; }
+.btn-secondary:hover { background: #dcdfe4; }
+.btn-small { padding: 5px 10px; font-size: 12px; font-weight: 500; background: #eef1f6; color: #1a1a1a; }
+.btn-small:hover { background: #e0e4ec; }
+.checkbox-row { font-size: 12px; color: #555; display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.status-msg { font-size: 12px; color: #0a8a3d; margin-left: 4px; visibility: hidden; }
+.status-msg.show { visibility: visible; }
+.results-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.results-header h2 { font-size: 15px; margin: 0; }
+.card {
+  border: 1px solid #e2e4e8; border-radius: 8px; padding: 12px 14px; margin-bottom: 8px; background: #fff;
+}
+.card.empty { background: #fafafa; }
+.card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.card-title { font-size: 13.5px; font-weight: 700; margin: 0 0 4px; }
+.card-body { font-size: 13px; line-height: 1.55; color: #2a2a2a; white-space: pre-wrap; }
+.card-body.empty { color: #9a9a9a; font-style: italic; }
+.count-pill {
+  display: inline-block; font-size: 11px; background: #eef3ff; color: #0b5fff; border-radius: 999px;
+  padding: 2px 8px; margin-left: 6px; font-weight: 600;
+}
+.hint { font-size: 12px; color: #777; margin-top: 4px; }
+footer { margin-top: 28px; font-size: 11px; color: #999; }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>CR Weekly Status Report — Topic Sorter</h1>
+  <p class="subtitle">
+    Paste raw updates from the team (Teams messages, emails, or any text tagged with topic headers) below.
+    This tool sorts the content under your fixed list of tracked items, so you can review it and copy it
+    into the SharePoint list. It doesn't write to the list automatically, but the "Copy as table" button
+    below produces tab-separated rows you can paste directly into the list's grid (quick edit) view.
+  </p>
+  <a class="list-link" href="https://reedelsevier.sharepoint.com/sites/OG-CustomerLearning/Lists/CR%20Weekly%20Status%20Report/AllItems.aspx" target="_blank" rel="noopener">Open OG-Commercial Readiness - CR Weekly Status Report - All Items ↗</a>
+
+  <div class="panel" style="margin-top:16px;">
+    <textarea id="pasteBox" placeholder="Paste one or more team updates here. Headers can look like:
+## CK AI BAU
+[ClinicalKey (CK) Physician BAU]
+ClinicalKey for Nursing Unified Vision (CKN+?)
+...or pasted rich text copied straight from Teams/Outlook."></textarea>
+    <div class="btn-row">
+      <button class="btn-primary" onclick="parseInput()">Parse &amp; Sort by Topic</button>
+      <button class="btn-secondary" onclick="clearAll()">Clear</button>
+      <label class="checkbox-row">
+        <input type="checkbox" id="includeEmpty" checked onchange="render()"> Show topics with no update
+      </label>
+    </div>
+    <div class="hint">Your draft is saved locally in this browser, so it's still here if you reload.</div>
+  </div>
+
+  <div class="results-header">
+    <h2>Sorted by topic <span id="topicCount" class="count-pill"></span></h2>
+    <div class="btn-row" style="margin-top:0;">
+      <button class="btn-small" onclick="copyAllMarkdown()">Copy all (Markdown)</button>
+      <button class="btn-small" onclick="copyAllTable()">Copy as table (paste into list grid)</button>
+      <span id="copyStatus" class="status-msg">Copied ✓</span>
+    </div>
+  </div>
+  <div id="results"></div>
+
+  <footer>CR Weekly Status Report — Topic Sorter. All parsing happens locally in your browser; nothing is sent anywhere.</footer>
+</div>
+
+<script>
+const TOPICS = [
+  "ClinicalKey Unified Vision (CK+?)",
+  "ClinicalKey for Nursing Unified Vision (CKN+?)",
+  "ClinicalKey (CK) Physician BAU",
+  "CK AI BAU",
+  "CPCK BAU",
+  "CK for Medical Schools BAU",
+  "CK Test Prep BAU",
+  "NEOID LMS Access",
+  "Clinical Learning Hub",
+  "CK Student NOAM/Clinical Cases BAU",
+  "CK Nursing BAU",
+  "Patient Pass/PE Products BAU",
+  "Clinical eLearning BAU",
+  "ClinicalPath BAU",
+  "ClinicalPath Provider Reports",
+  "PSS BAU",
+  "eLearning Localization"
+];
+
+// Extra phrasing seen in the wild that should map to a fixed topic above.
+const ALIASES = {
+  "neoid lms access ck student": "NEOID LMS Access",
+  "neoid lms access": "NEOID LMS Access"
+};
+
+function normalize(s) {
+  return s
+    .toLowerCase()
+    .replace(/[\[\]{}<>*#:_]/g, "")
+    .replace(/[.,;]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const NORM_TO_TOPIC = {};
+TOPICS.forEach(t => { NORM_TO_TOPIC[normalize(t)] = t; });
+Object.keys(ALIASES).forEach(k => { NORM_TO_TOPIC[normalize(k)] = ALIASES[k]; });
+
+function htmlToLines(raw) {
+  // If the paste brought HTML markup along (common when copying from Teams/Outlook),
+  // turn block-level tags into line breaks first, then strip remaining tags.
+  let s = raw;
+  if (/<[a-z][\s\S]*>/i.test(s)) {
+    s = s.replace(/<(h[1-6]|p|div|li|br)[^>]*>/gi, "\n")
+         .replace(/<\/(h[1-6]|p|div|li)>/gi, "\n")
+         .replace(/<[^>]+>/g, "");
+    const ta = document.createElement("textarea");
+    ta.innerHTML = s;
+    s = ta.value;
+  }
+  return s.split(/\r?\n/);
+}
+
+function matchTopic(line) {
+  const n = normalize(line);
+  if (!n) return null;
+  if (NORM_TO_TOPIC[n]) return NORM_TO_TOPIC[n];
+  if (line.trim().length <= 90) {
+    for (const norm in NORM_TO_TOPIC) {
+      if (n === norm) return NORM_TO_TOPIC[norm];
+    }
+  }
+  return null;
+}
+
+let sorted = {};
+
+function parseInput() {
+  const raw = document.getElementById("pasteBox").value;
+  try { localStorage.setItem("cr-sorter-draft", raw); } catch (e) {}
+  const lines = htmlToLines(raw);
+  const result = {};
+  TOPICS.forEach(t => result[t] = []);
+
+  let current = null;
+  lines.forEach(line => {
+    const trimmed = line.trim();
+    const topic = matchTopic(trimmed);
+    if (topic) {
+      current = topic;
+      return;
+    }
+    if (current && trimmed) {
+      result[current].push(trimmed);
+    }
+  });
+
+  sorted = {};
+  TOPICS.forEach(t => {
+    sorted[t] = result[t].join("\n").trim();
+  });
+  render();
+}
+
+function render() {
+  const includeEmpty = document.getElementById("includeEmpty").checked;
+  const container = document.getElementById("results");
+  container.innerHTML = "";
+  let filled = 0;
+
+  TOPICS.forEach(topic => {
+    const content = sorted[topic] || "";
+    if (content) filled++;
+    if (!content && !includeEmpty) return;
+
+    const card = document.createElement("div");
+    card.className = "card" + (content ? "" : " empty");
+
+    const top = document.createElement("div");
+    top.className = "card-top";
+
+    const title = document.createElement("p");
+    title.className = "card-title";
+    title.textContent = topic;
+
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "btn-small";
+    copyBtn.textContent = "Copy";
+    copyBtn.onclick = () => copyText(content || "", copyBtn);
+
+    top.appendChild(title);
+    top.appendChild(copyBtn);
+
+    const body = document.createElement("div");
+    body.className = "card-body" + (content ? "" : " empty");
+    body.textContent = content || "No update this week";
+
+    card.appendChild(top);
+    card.appendChild(body);
+    container.appendChild(card);
+  });
+
+  document.getElementById("topicCount").textContent = filled + " of " + TOPICS.length + " with content";
+}
+
+function copyText(text, btn) {
+  navigator.clipboard.writeText(text).then(() => {
+    if (btn) {
+      const original = btn.textContent;
+      btn.textContent = "Copied ✓";
+      setTimeout(() => btn.textContent = original, 1200);
+    }
+  }).catch(() => {});
+}
+
+function copyAllMarkdown() {
+  const includeEmpty = document.getElementById("includeEmpty").checked;
+  let out = "";
+  TOPICS.forEach(topic => {
+    const content = sorted[topic] || "";
+    if (!content && !includeEmpty) return;
+    out += "## " + topic + "\n" + (content || "") + "\n\n";
+  });
+  copyText(out.trim(), null);
+  flashStatus();
+}
+
+function copyAllTable() {
+  // Tab-separated Topic / Update rows — paste straight into the SharePoint list's grid (quick edit) view.
+  let out = "Topic\tUpdate\n";
+  TOPICS.forEach(topic => {
+    const content = (sorted[topic] || "").replace(/\t/g, " ").replace(/\n/g, " ");
+    if (!content) return;
+    out += topic + "\t" + content + "\n";
+  });
+  copyText(out.trim(), null);
+  flashStatus();
+}
+
+function flashStatus() {
+  const el = document.getElementById("copyStatus");
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 1500);
+}
+
+function clearAll() {
+  document.getElementById("pasteBox").value = "";
+  try { localStorage.removeItem("cr-sorter-draft"); } catch (e) {}
+  sorted = {};
+  render();
+}
+
+// Restore any saved draft on load.
+try {
+  const saved = localStorage.getItem("cr-sorter-draft");
+  if (saved) document.getElementById("pasteBox").value = saved;
+} catch (e) {}
+
+render();
+</script>
+</body>
+</html>
