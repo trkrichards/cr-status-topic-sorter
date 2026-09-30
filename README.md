@@ -16,18 +16,25 @@ Everything runs client-side in the browser — no backend, no data leaves your m
 - "Copy all as Markdown" for a full sorted digest.
 - "Copy as table" — produces tab-separated Topic/Update rows you can paste directly
   into the SharePoint list's grid (quick edit) view.
-- Star up to 3 topics ("☆ Top 3" button on any card with content) to feature them in a
-  Top 3 Updates section.
-- Time Off and Sign-off fields feed into the final report.
-- **Download Word Report (.doc)** — generates a real Word-openable document with Top 3
-  Updates, Updates by Topic (all 17, including blanks marked "No update this week"),
-  Time Off, and Sign-off sections. No server, no library — built client-side in the browser.
+- Star up to 3 topics ("☆ Top 3" button on any card with content) and give each a short
+  label (Launch, Risk, GTM, Milestone, etc.) to feature them in a highlights table.
+- **Create Final Report (.doc)** — generates a Word-openable document formatted after the
+  Commercial Readiness Status Report example: logo header, a 3-column Top 3 highlights
+  table (Paper-shaded cells, matching the example exactly), updates grouped under the same
+  section headers as the tracked list (with "No updates this week." for blanks), and a
+  Personnel section with Time Off bullets and a Sign Off checklist. No server, no library —
+  built client-side in the browser.
 - Draft auto-saved to browser `localStorage` so a reload doesn't lose your paste.
+- Styled to Elsevier brand standards: Vital Orange / Graphite / Ink / Sand / Paper / Action
+  Blue palette, Tiempos Text + National 2 typography, and the Elsevier wordmark in the header.
 
 ## Hosting on GitHub Pages
 
 1. Create a new GitHub repository (public, or private with GitHub Pages enabled on your plan).
-2. Add `index.html` from this folder to the repository root (commit and push).
+2. Add `index.html` and the `fonts/` folder from this download to the repository root
+   (commit and push) — the brand fonts are loaded from `fonts/` at a relative path, so that
+   folder needs to travel with `index.html`. (The logo and favicon are inlined directly in
+   `index.html`, so nothing else is required.)
 3. In the repo, go to **Settings → Pages**.
 4. Under **Build and deployment**, set **Source** to `Deploy from a branch`, choose the
    `main` branch and the `/ (root)` folder, then **Save**.
@@ -36,7 +43,14 @@ Everything runs client-side in the browser — no backend, no data leaves your m
 
 ## Files
 
-- `index.html` — the complete tool (self-contained; no build step, no dependencies).
+- `index.html` — the tool itself (the Elsevier wordmark logo and favicon are inlined inside
+  it, so it needs no other file to render or to generate reports).
+- `fonts/` — Tiempos Text and National 2 web fonts (Elsevier brand typefaces), referenced by
+  `index.html` via `@font-face`. Required for the page's on-screen branding.
+- `assets/` — the original logo/favicon source files (SVG + PNG, all lockups and colors), kept
+  for reference if you need a different lockup elsewhere. Not loaded by `index.html` itself.
+- `Commercial_Readiness_Status_Report_sample.doc` — a sample branded report generated from
+  this tool's "Create Final Report" button.
 
 ## Notes
 
